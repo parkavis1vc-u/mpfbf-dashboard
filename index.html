@@ -145,6 +145,7 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
   <span class="nt" onclick="showPage('qc')" id="nav-qc">✅ QC TAT</span>
   <span class="nt" onclick="showPage('reslot')" id="nav-reslot">🔄 Reslot</span>
   <span class="nt" onclick="showPage('rca')" id="nav-rca">🔬 RCA</span>
+  <span class="nt" onclick="showPage('combo')" id="nav-combo">🔗 Combo</span>
   <span class="nt" onclick="showPage('raw')" id="nav-raw">🗃 Raw Data</span>
   <button class="dl-btn" onclick="downloadCSV()">⬇ Download CSV</button>
 </div>
@@ -368,6 +369,41 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
   </div>
 </div>
 
+<!-- COMBO: Seller × FC × Transporter -->
+<div class="page" id="page-combo">
+  <div class="kr" id="combo-kpi"></div>
+  <div class="card">
+    <div class="ct">🔗 Seller × FC × Transporter — Combined Week-on-Week Analysis</div>
+    <div class="tabs" style="flex-wrap:wrap;gap:5px">
+      <button class="tb active" onclick="swTab('combo','schd')">📅 Scheduling Quantum</button>
+      <button class="tb" onclick="swTab('combo','lm')">📦 LM Pendency</button>
+      <button class="tb" onclick="swTab('combo','pp')">🔄 Past Pickup Pendency</button>
+      <button class="tb" onclick="swTab('combo','rtat')">⏱ Recv TAT (Max)</button>
+      <button class="tb" onclick="swTab('combo','qtat')">✅ QC TAT (Max)</button>
+    </div>
+    <div class="tc active" id="combo-tab-schd">
+      <div class="sr"><input placeholder="🔍 Search seller / FC / transporter…" oninput="rComboSel('schd',this.value)"></div>
+      <div class="thl"><div class="tw" id="combo-tbl-schd"></div></div>
+    </div>
+    <div class="tc" id="combo-tab-lm">
+      <div class="sr"><input placeholder="🔍 Search seller / FC / transporter…" oninput="rComboSel('lm',this.value)"></div>
+      <div class="thl"><div class="tw" id="combo-tbl-lm"></div></div>
+    </div>
+    <div class="tc" id="combo-tab-pp">
+      <div class="sr"><input placeholder="🔍 Search seller / FC / transporter…" oninput="rComboSel('pp',this.value)"></div>
+      <div class="thl"><div class="tw" id="combo-tbl-pp"></div></div>
+    </div>
+    <div class="tc" id="combo-tab-rtat">
+      <div class="sr"><input placeholder="🔍 Search seller / FC / transporter…" oninput="rComboSel('rtat',this.value)"></div>
+      <div class="thl"><div class="tw" id="combo-tbl-rtat"></div></div>
+    </div>
+    <div class="tc" id="combo-tab-qtat">
+      <div class="sr"><input placeholder="🔍 Search seller / FC / transporter…" oninput="rComboSel('qtat',this.value)"></div>
+      <div class="thl"><div class="tw" id="combo-tbl-qtat"></div></div>
+    </div>
+  </div>
+</div>
+
 <!-- RAW DATA -->
 <div class="page" id="page-raw">
   <div class="card" style="margin-bottom:10px">
@@ -407,10 +443,10 @@ const DDS=[
 ];
 const DD={}; DDS.forEach(d=>DD[d.k]=d);
 
-const PAGE_NAMES={summary:'📊 Summary',sched:'📅 Scheduling',d0:'🚛 D0 Pickup',lm:'📦 LM Pendency',recv:'⏱ Recv TAT',qc:'✅ QC TAT',reslot:'🔄 Reslot',rca:'🔬 RCA',raw:'🗃 Raw Data'};
+const PAGE_NAMES={summary:'📊 Summary',sched:'📅 Scheduling',d0:'🚛 D0 Pickup',lm:'📦 LM Pendency',recv:'⏱ Recv TAT',qc:'✅ QC TAT',reslot:'🔄 Reslot',rca:'🔬 RCA',combo:'🔗 Combo',raw:'🗃 Raw Data'};
 function emptyState(){return{months:new Set(),weeks:new Set(),warehouses:new Set(),verticals:new Set(),super_cats:new Set(),bus:new Set(),mr_remarks:new Set(),final_buckets:new Set(),lm_breach:new Set(),sellerQ:'',cidQ:''};}
 const PAGE_STATES={};
-['summary','sched','d0','lm','recv','qc','reslot','rca','raw'].forEach(p=>PAGE_STATES[p]=emptyState());
+['summary','sched','d0','lm','recv','qc','reslot','rca','combo','raw'].forEach(p=>PAGE_STATES[p]=emptyState());
 let CUR_PAGE='summary',S=PAGE_STATES.summary,FR=[],FRI=[],CMP={},charts={};
 
 function initDDs(){
@@ -592,6 +628,18 @@ function compute(){
   P.rcaLMTotal=lmR.reduce((s,r)=>s+r[QTY],0);
   P.rcaPPTotal=ppR.reduce((s,r)=>s+r[QTY],0);
   P.rcaSellersImpacted=new Set(FR.map(r=>r[SEL])).size;
+  // COMBO — Seller Name × FC × Transporter week-on-week for 5 metrics
+  const comboKey=r=>{if(r[SEL]<0||r[WH]<0||r[TR]<0)return null;return r[SEL]+'_'+r[WH]+'_'+r[TR];};
+  const comboLabel=r=>(M.seller_names[r[SEL]]||M.sellers[r[SEL]]||'')+'|'+(M.warehouses[r[WH]]||'')+'|'+(M.transporters[r[TR]]||'');
+  P.comboSchd=pWkC(FR,comboKey,comboLabel,QTY,'sum');
+  P.comboLM=pWkC(lmR,comboKey,comboLabel,QTY,'sum');
+  P.comboPP=pWkC(ppR,comboKey,comboLabel,QTY,'sum');
+  P.comboRTAT=pWkC(FR.filter(r=>r[RTAT]>0),comboKey,comboLabel,RTAT,'max');
+  P.comboQTAT=pWkC(FR.filter(r=>r[QTAT]>0),comboKey,comboLabel,QTAT,'max');
+  P.comboTotal=FR.reduce((s,r)=>s+r[QTY],0);
+  P.comboLMTotal=lmR.reduce((s,r)=>s+r[QTY],0);
+  P.comboPPTotal=ppR.reduce((s,r)=>s+r[QTY],0);
+  P.comboCombos=new Set(FR.map(r=>comboKey(r)).filter(Boolean)).size;
   CMP=P;
 }
 
@@ -602,6 +650,56 @@ function pWk(rows,keyFn,labelFn,valCol,agg,wkCol){
   if(agg==='max')Object.values(map).forEach(v=>{v.tot=Math.max(...v.wk.filter(x=>x>0),0);});
   else Object.values(map).forEach(v=>{v.tot=v.wk.reduce((s,x)=>s+x,0);});
   return Object.values(map).sort((a,b)=>b.tot-a.tot);
+}
+
+/* pWkC — combo key (string) variant of pWk */
+function pWkC(rows,keyFn,labelFn,valCol,agg,wkCol){
+  if(!wkCol)wkCol=WK;
+  const map={};
+  rows.forEach(r=>{
+    const ki=keyFn(r);if(!ki)return;
+    if(!map[ki])map[ki]={label:labelFn(r),wk:new Array(M.weeks.length).fill(0),tot:0};
+    const wi=r[wkCol];if(wi<0)return;
+    if(agg==='max')map[ki].wk[wi]=Math.max(map[ki].wk[wi],r[valCol]);
+    else map[ki].wk[wi]+=r[valCol];
+  });
+  if(agg==='max')Object.values(map).forEach(v=>{v.tot=Math.max(...v.wk.filter(x=>x>0),0);});
+  else Object.values(map).forEach(v=>{v.tot=v.wk.reduce((s,x)=>s+x,0);});
+  return Object.values(map).sort((a,b)=>b.tot-a.tot);
+}
+
+/* wkTblC — 3-column table for Seller Name | FC | Transporter */
+function wkTblC(data,valHdr,aggType){
+  if(!aggType)aggType='sum';
+  let h='<table><thead><tr><th style="min-width:28px">#</th>';
+  h+='<th style="min-width:130px">Seller Name</th>';
+  h+='<th style="min-width:120px">FC / Warehouse</th>';
+  h+='<th style="min-width:120px">Transporter</th>';
+  M.weeks.forEach(w=>h+='<th style="min-width:44px;text-align:center"><div class="wk-hdr">'+w+'</div></th>');
+  h+='<th style="min-width:110px">'+valHdr+'</th></tr></thead><tbody>';
+  const shown=data.slice(0,100);
+  // subtotal
+  const subWk=new Array(M.weeks.length).fill(0);
+  if(aggType==='max'){shown.forEach(row=>M.weeks.forEach((_,wi)=>{if((row.wk[wi]||0)>subWk[wi])subWk[wi]=row.wk[wi]||0;}));}
+  else{shown.forEach(row=>M.weeks.forEach((_,wi)=>{subWk[wi]+=(row.wk[wi]||0);}));}
+  const subTot=aggType==='max'?Math.max(...subWk.filter(v=>v>0),0):subWk.reduce((s,x)=>s+x,0);
+  const subLabel=aggType==='max'?'⊤ Max':'∑ Sub-Total';
+  h+='<tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800">';
+  h+='<td style="padding:7px 8px;color:#1e3a8a">—</td>';
+  h+='<td colspan="3" style="font-size:11px;font-weight:800;color:#1e3a8a;padding:7px 8px">'+subLabel+'</td>';
+  subWk.forEach(v=>{h+='<td style="text-align:right;font-weight:800;color:'+(v>0?'#1e3a8a':'#CBD5E1')+';background:'+(v>0?'rgba(37,99,235,.1)':'transparent')+'">'+(v>0?nf(v):'')+'</td>';});
+  h+='<td class="tot-col" style="font-weight:900;color:#1e3a8a">'+nf(subTot)+'</td></tr>';
+  const mx=shown[0]?shown[0].tot:1;
+  shown.forEach((row,i)=>{
+    const p=row.label.split('|'),sName=p[0]||'',fc=p[1]||'',tr=p[2]||'';
+    h+='<tr><td>'+rk(i)+'</td>';
+    h+='<td style="font-weight:700;color:#1e3a8a;max-width:150px;overflow:hidden;text-overflow:ellipsis" title="'+sName+'">'+sName+'</td>';
+    h+='<td style="font-size:11px;color:#374151;max-width:130px;overflow:hidden;text-overflow:ellipsis" title="'+fc+'">'+fc+'</td>';
+    h+='<td style="font-size:11px;color:#374151;max-width:120px;overflow:hidden;text-overflow:ellipsis" title="'+tr+'">'+tr+'</td>';
+    M.weeks.forEach((_,wi)=>{const v=row.wk[wi]||0;h+='<td class="'+(v>0?'wk-hi':'wk-zero')+'">'+(v>0?nf(v):'')+'</td>';});
+    h+='<td class="tot-col">'+barCell(row.tot,mx)+'</td></tr>';
+  });
+  return h+'</tbody></table>';
 }
 
 /* CHARTS — professional light fills + saturated dark borders */
@@ -759,7 +857,7 @@ function renderPage(){
   const p=CUR_PAGE;
   if(p==='summary')rSummary();else if(p==='sched')rSched();else if(p==='d0')rD0();
   else if(p==='lm')rLM();else if(p==='recv')rRecv();else if(p==='qc')rQC();
-  else if(p==='reslot')rReslot();else if(p==='rca')rRCA();else if(p==='raw')rRaw(1);
+  else if(p==='reslot')rReslot();else if(p==='rca')rRCA();else if(p==='combo')rCombo();else if(p==='raw')rRaw(1);
 }
 function swTab(pg,tab){
   const p=document.getElementById('page-'+pg);
@@ -948,6 +1046,34 @@ function rRCASel(tab,q){
   document.getElementById('rca-tbl-'+tab).innerHTML=wkTbl(d,'Seller ID','Seller Name',meta.valHdr,meta.agg);
 }
 
+const COMBO_META={
+  schd:{key:'comboSchd',valHdr:'Total Qty',agg:'sum'},
+  lm:{key:'comboLM',valHdr:'LM Qty',agg:'sum'},
+  pp:{key:'comboPP',valHdr:'PP Qty',agg:'sum'},
+  rtat:{key:'comboRTAT',valHdr:'Max Recv TAT (d)',agg:'max'},
+  qtat:{key:'comboQTAT',valHdr:'Max QC TAT (d)',agg:'max'}
+};
+function rCombo(){
+  const P=CMP;
+  document.getElementById('combo-kpi').innerHTML=`
+    <div class="kc"><div class="kv">${nf(P.comboTotal)}</div><div class="kl">Total Scheduling Quantum</div></div>
+    <div class="kc r"><div class="kv">${nf(P.comboLMTotal)}</div><div class="kl">LM Pendency Qty</div></div>
+    <div class="kc o"><div class="kv">${nf(P.comboPPTotal)}</div><div class="kl">Past Pickup Pendency Qty</div></div>
+    <div class="kc p"><div class="kv">${P.comboCombos}</div><div class="kl">Unique Seller×FC×TR Combos</div></div>`;
+  ['schd','lm','pp','rtat','qtat'].forEach(t=>rComboSel(t,''));
+}
+function rComboSel(tab,q){
+  const meta=COMBO_META[tab];
+  const raw=CMP[meta.key]||[];
+  const ql=q.toLowerCase();
+  const d=raw.filter(r=>{
+    if(!ql)return true;
+    const p=r.label.split('|');
+    return(p[0]||'').toLowerCase().includes(ql)||(p[1]||'').toLowerCase().includes(ql)||(p[2]||'').toLowerCase().includes(ql);
+  });
+  document.getElementById('combo-tbl-'+tab).innerHTML=wkTblC(d,meta.valHdr,meta.agg);
+}
+
 function rRaw(pg){
   rawPg=pg||1;
   const q=(document.getElementById('raw-sr')||{}).value?.toLowerCase()||'';
@@ -986,7 +1112,7 @@ function downloadCSV(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 15 Jun 2026, 05:15 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 15 Jun 2026, 05:24 PM</span>';
   rSummary();
 });
 </script>
