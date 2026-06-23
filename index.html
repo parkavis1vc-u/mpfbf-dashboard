@@ -411,8 +411,9 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
   <!-- Recall Filters -->
   <div class="card" style="margin-bottom:10px;padding:12px 16px">
     <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end">
-      <div class="fl" id="rfl-month"></div>
+      <div class="fl" id="rfl-status"></div>
       <div class="fl" id="rfl-wh"></div>
+      <div class="fl" id="rfl-month"></div>
       <div class="fl" id="rfl-type"></div>
       <div class="fl" id="rfl-storage"></div>
       <div class="fl" id="rfl-creation"></div>
@@ -1168,7 +1169,7 @@ function downloadCSV(){
    RECALL PAGE — independent state, filters & render
    ═══════════════════════════════════════════════════════ */
 const RM=RD?RD.meta:null;
-let R_STATE={months:[],whs:[],types:[],storages:[],creations:[],transfers:[],selQ:''};
+let R_STATE={statuses:[],months:[],whs:[],types:[],storages:[],creations:[],transfers:[],selQ:''};
 let R_DDS=[];
 
 function initRecall(){
@@ -1188,8 +1189,9 @@ function initRecall(){
     R_DDS.push({id:containerId,items,stateKey});
     populateRDD(containerId,items,'');
   };
-  makeRDD('rfl-month','Creation Month',RM.statuses.length?['1','2','3','4','5','6','7','8','9','10','11','12'].filter(m=>RD.rows.some(r=>r[RC_CM]==+m)).map(m=>({label:new Date(2026,+m-1,1).toLocaleString('default',{month:'short'})+'-'+( +m<=6?'2026':'2025'),val:+m})):[],'months');
+  makeRDD('rfl-status','Current Status',RM.statuses.map((s,i)=>({label:s,val:i})),'statuses');
   makeRDD('rfl-wh','FC / Warehouse',RM.warehouses.map((w,i)=>({label:w,val:i})),'whs');
+  makeRDD('rfl-month','Creation Month',['1','2','3','4','5','6','7','8','9','10','11','12'].filter(m=>RD.rows.some(r=>r[RC_CM]==+m)).map(m=>({label:new Date(2026,+m-1,1).toLocaleString('default',{month:'short'})+'-',(+m<=6?'2026':'2025'),val:+m})),'months');
   makeRDD('rfl-type','Recall Type',RM.recall_types.map((t,i)=>({label:t,val:i})),'types');
   makeRDD('rfl-storage','Storage Type',RM.storage_types.map((s,i)=>({label:s,val:i})),'storages');
   makeRDD('rfl-creation','Creation Type',RM.creation_types.map((c,i)=>({label:c,val:i})),'creations');
@@ -1243,11 +1245,12 @@ document.addEventListener('click',e=>{if(!e.target.closest('.fl'))document.query
 
 function recallFiltered(){
   if(!RD)return[];
-  const {months,whs,types,storages,creations,transfers,selQ}=R_STATE;
+  const {statuses,months,whs,types,storages,creations,transfers,selQ}=R_STATE;
   const ql=(selQ||'').toLowerCase();
   return RD.rows.filter((r,i)=>{
-    if(months.length&&!months.includes(r[RC_CM]))return false;
+    if(statuses.length&&!statuses.includes(r[RC_STATUS]))return false;
     if(whs.length&&!whs.includes(r[RC_WH]))return false;
+    if(months.length&&!months.includes(r[RC_CM]))return false;
     if(types.length&&!types.includes(r[RC_RT]))return false;
     if(storages.length&&!storages.includes(r[RC_ST]))return false;
     if(creations.length&&!creations.includes(r[RC_CT]))return false;
@@ -1368,7 +1371,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 01:21 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 01:45 PM</span>';
   rSummary();
 });
 </script>
