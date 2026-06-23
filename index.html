@@ -1191,7 +1191,7 @@ function initRecall(){
   };
   makeRDD('rfl-status','Current Status',RM.statuses.map((s,i)=>({label:s,val:i})),'statuses');
   makeRDD('rfl-wh','FC / Warehouse',RM.warehouses.map((w,i)=>({label:w,val:i})),'whs');
-  makeRDD('rfl-month','Creation Month',['1','2','3','4','5','6','7','8','9','10','11','12'].filter(m=>RD.rows.some(r=>r[RC_CM]==+m)).map(m=>({label:new Date(2026,+m-1,1).toLocaleString('default',{month:'short'})+'-',(+m<=6?'2026':'2025'),val:+m})),'months');
+  makeRDD('rfl-month','Creation Month',['1','2','3','4','5','6','7','8','9','10','11','12'].filter(m=>RD.rows.some(r=>r[RC_CM]==+m)).map(m=>({label:new Date(2026,+m-1,1).toLocaleString('default',{month:'short'})+'-'+(+m<=6?'2026':'2025'),val:+m})),'months');
   makeRDD('rfl-type','Recall Type',RM.recall_types.map((t,i)=>({label:t,val:i})),'types');
   makeRDD('rfl-storage','Storage Type',RM.storage_types.map((s,i)=>({label:s,val:i})),'storages');
   makeRDD('rfl-creation','Creation Type',RM.creation_types.map((c,i)=>({label:c,val:i})),'creations');
@@ -1371,7 +1371,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 01:45 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 02:03 PM</span>';
   rSummary();
 });
 </script>
