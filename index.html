@@ -427,12 +427,22 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
       </div>
     </div>
   </div>
-  <!-- Pivot matrix -->
+  <!-- Pivot 1: Status × Ageing Bucket -->
   <div class="card" style="margin-bottom:14px">
     <div class="ct">📋 Status × Ageing Bucket — Warehouse Confirmed Units</div>
     <div class="tw" id="recall-pivot"></div>
   </div>
-  <!-- Charts row -->
+  <!-- Pivot 2: FC × Ageing Bucket -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">🏭 FC × Ageing Bucket — Warehouse Confirmed Units</div>
+    <div class="thl" style="max-height:420px"><div class="tw" id="recall-fc-age-pivot"></div></div>
+  </div>
+  <!-- Pivot 3: FC × Storage Type -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct">📦 FC × Storage Type — Warehouse Confirmed Units</div>
+    <div class="thl" style="max-height:420px"><div class="tw" id="recall-fc-st-pivot"></div></div>
+  </div>
+  <!-- Chart: Top FCs + Recall Type only -->
   <div class="g2">
     <div class="card">
       <div class="ct">🏭 Top FCs by WCU</div>
@@ -442,10 +452,6 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
       <div class="ct">📦 Recall Type Distribution</div>
       <div class="ch-sm"><canvas id="recall-ch-type"></canvas></div>
     </div>
-  </div>
-  <div class="card">
-    <div class="ct">🏆 Top Sellers by Warehouse Confirmed Units</div>
-    <div class="ch" style="height:320px"><canvas id="recall-ch-sel"></canvas></div>
   </div>
 </div>
 
@@ -1295,23 +1301,74 @@ function rRecall(){
     ph+=`<td style="text-align:right;font-weight:800"><div class="bar-cell" style="justify-content:flex-end"><div class="bar-fill" style="width:${w}px;background:${dotClr}44"></div><span style="color:${dotClr}">${nf(tot)}</span></div></td></tr>`;
   });
   document.getElementById('recall-pivot').innerHTML=ph+'</tbody></table>';
-  // Chart 1 — Top FCs
+
+  // ── Pivot 2: FC × Ageing Bucket ──────────────────────────────────────
+  const fcAgePivot={};
+  FR2.forEach(r=>{
+    const fc=RM.warehouses[r[RC_WH]]||'Unknown';
+    const b=buckets[r[RC_AB]]||'Unknown';
+    if(!fcAgePivot[fc])fcAgePivot[fc]={};
+    fcAgePivot[fc][b]=(fcAgePivot[fc][b]||0)+r[RC_WCU];
+  });
+  const fcAgeSorted=Object.entries(fcAgePivot).map(([fc,bs])=>({fc,tot:Object.values(bs).reduce((a,b)=>a+b,0),bs})).sort((a,b)=>b.tot-a.tot);
+  let fah='<table><thead><tr><th>FC / Warehouse</th>';
+  buckets.forEach(b=>fah+=`<th style="text-align:right;min-width:100px">${b}</th>`);
+  fah+='<th style="text-align:right;min-width:90px;background:#EEF4FF">Total</th></tr></thead><tbody>';
+  // grand total
+  const faTotBkt=buckets.map(b=>fcAgeSorted.reduce((s,{bs})=>(s+(bs[b]||0)),0));
+  const faTotAll=faTotBkt.reduce((a,b)=>a+b,0);
+  fah+=`<tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800"><td style="font-weight:800;color:#1e3a8a">∑ Grand Total</td>`;
+  faTotBkt.forEach(v=>fah+=`<td style="text-align:right;font-weight:800;color:${v>0?'#1e3a8a':'#CBD5E1'};background:${v>0?'rgba(37,99,235,.1)':'transparent'}">${v>0?nf(v):''}</td>`);
+  fah+=`<td style="text-align:right;font-weight:900;color:#1e3a8a;background:#EEF4FF">${nf(faTotAll)}</td></tr>`;
+  const faMx=fcAgeSorted[0]?fcAgeSorted[0].tot:1;
+  fcAgeSorted.forEach(({fc,tot,bs},i)=>{
+    fah+=`<tr><td>${rk(i)}&nbsp;<span style="font-weight:600;font-size:12px">${fc}</span></td>`;
+    buckets.forEach(b=>{const v=bs[b]||0;fah+=`<td style="${v>0?'text-align:right;font-weight:700;color:#1e3a8a':'text-align:right;color:#CBD5E1'}">${v>0?nf(v):''}</td>`;});
+    const w=Math.max(2,Math.round(tot/faMx*90));
+    fah+=`<td style="text-align:right;font-weight:800"><div class="bar-cell" style="justify-content:flex-end"><div class="bar-fill" style="width:${w}px"></div><span>${nf(tot)}</span></div></td></tr>`;
+  });
+  document.getElementById('recall-fc-age-pivot').innerHTML=fah+'</tbody></table>';
+
+  // ── Pivot 3: FC × Storage Type ────────────────────────────────────────
+  const storageTypes=RM.storage_types;
+  const fcStPivot={};
+  FR2.forEach(r=>{
+    const fc=RM.warehouses[r[RC_WH]]||'Unknown';
+    const st=storageTypes[r[RC_ST]]||'Unknown';
+    if(!fcStPivot[fc])fcStPivot[fc]={};
+    fcStPivot[fc][st]=(fcStPivot[fc][st]||0)+r[RC_WCU];
+  });
+  const fcStSorted=Object.entries(fcStPivot).map(([fc,sts])=>({fc,tot:Object.values(sts).reduce((a,b)=>a+b,0),sts})).sort((a,b)=>b.tot-a.tot);
+  let fsh='<table><thead><tr><th>FC / Warehouse</th>';
+  storageTypes.forEach(st=>fsh+=`<th style="text-align:right;min-width:90px">${st}</th>`);
+  fsh+='<th style="text-align:right;min-width:90px;background:#EEF4FF">Total</th></tr></thead><tbody>';
+  // grand total
+  const fsTotSt=storageTypes.map(st=>fcStSorted.reduce((s,{sts})=>(s+(sts[st]||0)),0));
+  const fsTotAll=fsTotSt.reduce((a,b)=>a+b,0);
+  fsh+=`<tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800"><td style="font-weight:800;color:#1e3a8a">∑ Grand Total</td>`;
+  fsTotSt.forEach(v=>fsh+=`<td style="text-align:right;font-weight:800;color:${v>0?'#1e3a8a':'#CBD5E1'};background:${v>0?'rgba(37,99,235,.1)':'transparent'}">${v>0?nf(v):''}</td>`);
+  fsh+=`<td style="text-align:right;font-weight:900;color:#1e3a8a;background:#EEF4FF">${nf(fsTotAll)}</td></tr>`;
+  const fsMx=fcStSorted[0]?fcStSorted[0].tot:1;
+  fcStSorted.forEach(({fc,tot,sts},i)=>{
+    fsh+=`<tr><td>${rk(i)}&nbsp;<span style="font-weight:600;font-size:12px">${fc}</span></td>`;
+    storageTypes.forEach(st=>{const v=sts[st]||0;fsh+=`<td style="${v>0?'text-align:right;font-weight:700;color:#1e3a8a':'text-align:right;color:#CBD5E1'}">${v>0?nf(v):''}</td>`;});
+    const w=Math.max(2,Math.round(tot/fsMx*90));
+    fsh+=`<td style="text-align:right;font-weight:800"><div class="bar-cell" style="justify-content:flex-end"><div class="bar-fill" style="width:${w}px"></div><span>${nf(tot)}</span></div></td></tr>`;
+  });
+  document.getElementById('recall-fc-st-pivot').innerHTML=fsh+'</tbody></table>';
+
+  // ── Charts ────────────────────────────────────────────────────────────
   const fcMap={};FR2.forEach(r=>{const w=RM.warehouses[r[RC_WH]]||'?';fcMap[w]=(fcMap[w]||0)+r[RC_WCU];});
   const fcSorted=Object.entries(fcMap).sort((a,b)=>b[1]-a[1]).slice(0,12);
   hbar('recall-ch-fc',fcSorted.map(x=>x[0]),fcSorted.map(x=>x[1]));
-  // Chart 2 — Recall Type
   const rtMap={};FR2.forEach(r=>{const t=RM.recall_types[r[RC_RT]]||'?';rtMap[t]=(rtMap[t]||0)+r[RC_WCU];});
   const rtSorted=Object.entries(rtMap).sort((a,b)=>b[1]-a[1]);
   hbar('recall-ch-type',rtSorted.map(x=>x[0]),rtSorted.map(x=>x[1]));
-  // Chart 3 — Top sellers
-  const selMap={};FR2.forEach((r,i)=>{const ri=RD.rows.indexOf(r);const sid=RD.sids[ri]||'?';selMap[sid]=(selMap[sid]||0)+r[RC_WCU];});
-  const selSorted=Object.entries(selMap).sort((a,b)=>b[1]-a[1]).slice(0,15);
-  hbar('recall-ch-sel',selSorted.map(x=>x[0]),selSorted.map(x=>x[1]));
 }
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 01:16 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 23 Jun 2026, 01:21 PM</span>';
   rSummary();
 });
 </script>
