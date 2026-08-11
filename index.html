@@ -264,7 +264,7 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
     <label style="font-weight:600;font-size:13px;color:var(--tx)">Slot Ageing:</label>
     <div style="position:relative;display:inline-block" id="lm-sag-wrap">
-      <button onclick="document.getElementById('lm-sag-dd').classList.toggle('open')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer;min-width:140px;text-align:left" id="lm-sag-btn">All</button>
+      <button onclick="event.stopPropagation();document.getElementById('lm-sag-dd').classList.toggle('open')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer;min-width:140px;text-align:left" id="lm-sag-btn">All</button>
       <div id="lm-sag-dd" style="display:none;position:absolute;top:100%;left:0;z-index:999;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:8px;min-width:150px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
         <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="all" onchange="lmSagToggle(this)" checked> All</label>
         <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="0" onchange="lmSagToggle(this)"> 0 days</label>
@@ -276,6 +276,7 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
     </div>
   </div>
   <style>#lm-sag-dd.open{display:block!important}</style>
+  <script>document.addEventListener('click',function(e){if(!e.target.closest('#lm-sag-wrap'))document.getElementById('lm-sag-dd').classList.remove('open');});</script>
   <div class="kr" id="lm-kpi"></div>
   <div class="g2">
     <div class="card"><div class="ct">📦 Weekly LM Pendency</div><div class="ch-sm"><canvas id="ch-lm-wk"></canvas></div></div>
@@ -1430,7 +1431,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:29 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:39 PM</span>';
   rSummary();
 });
 </script>
