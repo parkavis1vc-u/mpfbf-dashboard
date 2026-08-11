@@ -1017,9 +1017,10 @@ function lmSagToggle(cb){
     otherCbs.forEach(c=>c.checked=false);
     allCb.checked=true;
   } else {
+    LM_SAG_BUCKETS.delete('all');
     allCb.checked=false;
     if(cb.checked)LM_SAG_BUCKETS.add(cb.value); else LM_SAG_BUCKETS.delete(cb.value);
-    if(LM_SAG_BUCKETS.size===0){LM_SAG_BUCKETS.add('all');allCb.checked=true;}
+    if(LM_SAG_BUCKETS.size===0){LM_SAG_BUCKETS=new Set(['all']);allCb.checked=true;}
   }
   const sel=[...LM_SAG_BUCKETS];
   document.getElementById('lm-sag-btn').textContent=sel.includes('all')?'All':sel.join(', ');
@@ -1429,7 +1430,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:26 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:29 PM</span>';
   rSummary();
 });
 </script>
