@@ -263,15 +263,19 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
 <div class="page" id="page-lm">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
     <label style="font-weight:600;font-size:13px;color:var(--tx)">Slot Ageing:</label>
-    <select id="lm-sag-sel" onchange="LM_SAG_BUCKET=this.value;rLM()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer">
-      <option value="all">All</option>
-      <option value="0">0 days</option>
-      <option value="1-5">1–5 days</option>
-      <option value="5-10">5–10 days</option>
-      <option value="11-20">11–20 days</option>
-      <option value="20+">20+ days</option>
-    </select>
+    <div style="position:relative;display:inline-block" id="lm-sag-wrap">
+      <button onclick="document.getElementById('lm-sag-dd').classList.toggle('open')" style="padding:5px 12px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer;min-width:140px;text-align:left" id="lm-sag-btn">All</button>
+      <div id="lm-sag-dd" style="display:none;position:absolute;top:100%;left:0;z-index:999;background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:8px;min-width:150px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="all" onchange="lmSagToggle(this)" checked> All</label>
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="0" onchange="lmSagToggle(this)"> 0 days</label>
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="1-5" onchange="lmSagToggle(this)"> 1–5 days</label>
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="5-10" onchange="lmSagToggle(this)"> 5–10 days</label>
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="11-20" onchange="lmSagToggle(this)"> 11–20 days</label>
+        <label style="display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;font-size:13px;border-radius:4px"><input type="checkbox" value="20+" onchange="lmSagToggle(this)"> 20+ days</label>
+      </div>
+    </div>
   </div>
+  <style>#lm-sag-dd.open{display:block!important}</style>
   <div class="kr" id="lm-kpi"></div>
   <div class="g2">
     <div class="card"><div class="ct">📦 Weekly LM Pendency</div><div class="ch-sm"><canvas id="ch-lm-wk"></canvas></div></div>
@@ -514,7 +518,7 @@ function emptyState(){return{months:new Set(),weeks:new Set(),warehouses:new Set
 const PAGE_STATES={};
 ['summary','sched','d0','lm','recv','qc','reslot','rca','combo','recall','raw'].forEach(p=>PAGE_STATES[p]=emptyState());
 let CUR_PAGE='summary',S=PAGE_STATES.summary,FR=[],FRI=[],CMP={},charts={};
-let LM_SAG_BUCKET='all';
+let LM_SAG_BUCKETS=new Set(['all']);
 
 function initDDs(){
   DDS.forEach(d=>{document.getElementById('sac-'+d.k).textContent='('+d.items().length+' total)';renderDDList(d.k,'');});
@@ -1005,17 +1009,32 @@ function rD0Sel(q){const d=CMP.d0Sel.filter(r=>{const p=r.label.split('|');retur
 function rD0Tr(q){const d=CMP.d0Tr.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('d0-tbl-t').innerHTML=wkTbl(d,'Transporter',null,'Qty (excl D0+RTD)');}
 function rD0FC(q){const d=CMP.d0FC.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('d0-tbl-f').innerHTML=wkTbl(d,'FC / Warehouse',null,'Qty (excl D0+RTD)');}
 
+function lmSagToggle(cb){
+  const allCb=document.querySelector('#lm-sag-dd input[value="all"]');
+  const otherCbs=[...document.querySelectorAll('#lm-sag-dd input:not([value="all"])')];
+  if(cb.value==='all'){
+    LM_SAG_BUCKETS=new Set(['all']);
+    otherCbs.forEach(c=>c.checked=false);
+    allCb.checked=true;
+  } else {
+    allCb.checked=false;
+    if(cb.checked)LM_SAG_BUCKETS.add(cb.value); else LM_SAG_BUCKETS.delete(cb.value);
+    if(LM_SAG_BUCKETS.size===0){LM_SAG_BUCKETS.add('all');allCb.checked=true;}
+  }
+  const sel=[...LM_SAG_BUCKETS];
+  document.getElementById('lm-sag-btn').textContent=sel.includes('all')?'All':sel.join(', ');
+  rLM();
+}
 function lmSagFilter(pairs){
-  const b=LM_SAG_BUCKET;
-  if(b==='all')return pairs;
+  if(LM_SAG_BUCKETS.has('all'))return pairs;
   return pairs.filter(({ri})=>{
     const sag=D.raw_extra[ri][RE_SAG]||0;
-    if(b==='0')return sag===0;
-    if(b==='1-5')return sag>=1&&sag<=5;
-    if(b==='5-10')return sag>=5&&sag<=10;
-    if(b==='11-20')return sag>=11&&sag<=20;
-    if(b==='20+')return sag>20;
-    return true;
+    if(LM_SAG_BUCKETS.has('0')&&sag===0)return true;
+    if(LM_SAG_BUCKETS.has('1-5')&&sag>=1&&sag<=5)return true;
+    if(LM_SAG_BUCKETS.has('5-10')&&sag>=5&&sag<=10)return true;
+    if(LM_SAG_BUCKETS.has('11-20')&&sag>=11&&sag<=20)return true;
+    if(LM_SAG_BUCKETS.has('20+')&&sag>20)return true;
+    return false;
   });
 }
 function rLM(){
@@ -1410,7 +1429,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:14 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:25 PM</span>';
   rSummary();
 });
 </script>
