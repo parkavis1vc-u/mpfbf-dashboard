@@ -261,6 +261,17 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
 
 <!-- LM -->
 <div class="page" id="page-lm">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <label style="font-weight:600;font-size:13px;color:var(--tx)">Slot Ageing:</label>
+    <select id="lm-sag-sel" onchange="LM_SAG_BUCKET=this.value;rLM()" style="padding:5px 10px;border-radius:6px;border:1px solid var(--bd);background:var(--bg2);color:var(--tx);font-size:13px;cursor:pointer">
+      <option value="all">All</option>
+      <option value="0">0 days</option>
+      <option value="1-5">1–5 days</option>
+      <option value="5-10">5–10 days</option>
+      <option value="11-20">11–20 days</option>
+      <option value="20+">20+ days</option>
+    </select>
+  </div>
   <div class="kr" id="lm-kpi"></div>
   <div class="g2">
     <div class="card"><div class="ct">📦 Weekly LM Pendency</div><div class="ch-sm"><canvas id="ch-lm-wk"></canvas></div></div>
@@ -503,6 +514,7 @@ function emptyState(){return{months:new Set(),weeks:new Set(),warehouses:new Set
 const PAGE_STATES={};
 ['summary','sched','d0','lm','recv','qc','reslot','rca','combo','recall','raw'].forEach(p=>PAGE_STATES[p]=emptyState());
 let CUR_PAGE='summary',S=PAGE_STATES.summary,FR=[],FRI=[],CMP={},charts={};
+let LM_SAG_BUCKET='all';
 
 function initDDs(){
   DDS.forEach(d=>{document.getElementById('sac-'+d.k).textContent='('+d.items().length+' total)';renderDDList(d.k,'');});
@@ -620,7 +632,10 @@ function compute(){
   P.d0Sel=pWk(exR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');
   P.d0Tr=pWk(exR,r=>r[TR],i=>M.transporters[i],QTY,'sum');
   P.d0FC=pWk(exR,r=>r[WH],i=>M.warehouses[i],QTY,'sum');
-  const lmI=M.final_buckets.indexOf('LM Pendency'),lmR=FR.filter(r=>r[FB]===lmI);
+  const lmI=M.final_buckets.indexOf('LM Pendency');
+  const lmPairs=[];FR.forEach((r,j)=>{if(r[FB]===lmI)lmPairs.push({r,ri:FRI[j]});});
+  const lmR=lmPairs.map(p=>p.r);
+  P.lmPairs=lmPairs;
   P.lmTotal=lmR.reduce((s,r)=>s+r[QTY],0);
   P.lmSel=pWk(lmR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');
   P.lmTr=pWk(lmR,r=>r[TR],i=>M.transporters[i],QTY,'sum');
@@ -990,16 +1005,40 @@ function rD0Sel(q){const d=CMP.d0Sel.filter(r=>{const p=r.label.split('|');retur
 function rD0Tr(q){const d=CMP.d0Tr.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('d0-tbl-t').innerHTML=wkTbl(d,'Transporter',null,'Qty (excl D0+RTD)');}
 function rD0FC(q){const d=CMP.d0FC.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('d0-tbl-f').innerHTML=wkTbl(d,'FC / Warehouse',null,'Qty (excl D0+RTD)');}
 
+function lmSagFilter(pairs){
+  const b=LM_SAG_BUCKET;
+  if(b==='all')return pairs;
+  return pairs.filter(({ri})=>{
+    const sag=D.raw_extra[ri][RE_SAG]||0;
+    if(b==='0')return sag===0;
+    if(b==='1-5')return sag>=1&&sag<=5;
+    if(b==='5-10')return sag>=5&&sag<=10;
+    if(b==='11-20')return sag>=11&&sag<=20;
+    if(b==='20+')return sag>20;
+    return true;
+  });
+}
 function rLM(){
   const P=CMP;
-  document.getElementById('lm-kpi').innerHTML=`<div class="kc r"><div class="kv">${nf(P.lmTotal)}</div><div class="kl">LM Pendency Qty</div></div><div class="kc o"><div class="kv">${P.lmSel.length}</div><div class="kl">Sellers Impacted</div></div>`;
-  vbar('ch-lm-wk',M.weeks,[{label:'LM Pendency',data:P.lmWkly,backgroundColor:'#E53935',borderRadius:5}]);
-  vbar('ch-lm-mn',M.months,[{label:'LM Pendency',data:P.lmMnly,backgroundColor:'#9C27B0',borderRadius:5}]);
-  rLMSel('');rLMTr('');rLMFC('');
+  const filtPairs=lmSagFilter(P.lmPairs);
+  const filtR=filtPairs.map(p=>p.r);
+  const filtTotal=filtR.reduce((s,r)=>s+r[QTY],0);
+  const filtSel=pWk(filtR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');
+  const filtTr=pWk(filtR,r=>r[TR],i=>M.transporters[i],QTY,'sum');
+  const filtFC=pWk(filtR,r=>r[WH],i=>M.warehouses[i],QTY,'sum');
+  const filtWkly=M.weeks.map((_,wi)=>filtR.filter(r=>r[WK]===wi).reduce((s,r)=>s+r[QTY],0));
+  const filtMnly=M.months.map((_,mi)=>filtR.filter(r=>r[MON]===mi).reduce((s,r)=>s+r[QTY],0));
+  document.getElementById('lm-kpi').innerHTML=`<div class="kc r"><div class="kv">${nf(filtTotal)}</div><div class="kl">LM Pendency Qty</div></div><div class="kc o"><div class="kv">${filtSel.length}</div><div class="kl">Sellers Impacted</div></div>`;
+  vbar('ch-lm-wk',M.weeks,[{label:'LM Pendency',data:filtWkly,backgroundColor:'#E53935',borderRadius:5}]);
+  vbar('ch-lm-mn',M.months,[{label:'LM Pendency',data:filtMnly,backgroundColor:'#9C27B0',borderRadius:5}]);
+  rLMSel_f('',filtSel);rLMTr_f('',filtTr);rLMFC_f('',filtFC);
 }
-function rLMSel(q){const d=CMP.lmSel.filter(r=>{const p=r.label.split('|');return!q||(p[0]||'').toLowerCase().includes(q)||(p[1]||'').toLowerCase().includes(q);});document.getElementById('lm-tbl-s').innerHTML=wkTbl(d,'Seller ID','Seller Name','Promised Qty');}
-function rLMTr(q){const d=CMP.lmTr.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-t').innerHTML=wkTbl(d,'Transporter',null,'Promised Qty');}
-function rLMFC(q){const d=CMP.lmFC.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-f').innerHTML=wkTbl(d,'FC / Warehouse',null,'Promised Qty');}
+function rLMSel_f(q,d){if(!d)d=lmSagFilter(CMP.lmPairs),d=pWk(d.map(p=>p.r),r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');const f=d.filter(r=>{const p=r.label.split('|');return!q||(p[0]||'').toLowerCase().includes(q)||(p[1]||'').toLowerCase().includes(q);});document.getElementById('lm-tbl-s').innerHTML=wkTbl(f,'Seller ID','Seller Name','Promised Qty');}
+function rLMTr_f(q,d){if(!d)d=pWk(lmSagFilter(CMP.lmPairs).map(p=>p.r),r=>r[TR],i=>M.transporters[i],QTY,'sum');const f=d.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-t').innerHTML=wkTbl(f,'Transporter',null,'Promised Qty');}
+function rLMFC_f(q,d){if(!d)d=pWk(lmSagFilter(CMP.lmPairs).map(p=>p.r),r=>r[WH],i=>M.warehouses[i],QTY,'sum');const f=d.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-f').innerHTML=wkTbl(f,'FC / Warehouse',null,'Promised Qty');}
+function rLMSel(q){rLMSel_f(q);}
+function rLMTr(q){rLMTr_f(q);}
+function rLMFC(q){rLMFC_f(q);}
 
 function rRecv(){
   const P=CMP;
@@ -1371,7 +1410,7 @@ function rRecall(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 02:01 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 11 Aug 2026, 03:14 PM</span>';
   rSummary();
 });
 </script>
