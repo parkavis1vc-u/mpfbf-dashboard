@@ -1019,11 +1019,6 @@ function rD0(){
   ORDER.forEach(rmk=>{const row=d0mpBar.find(x=>x.remark===rmk)||{qty:0,pct:0};shown.add(rmk);badges.push('<div class="rb" style="background:'+gradient(RMC[rmk]||'#546E7A')+'"><div class="rb-v">'+row.pct+'%</div><div class="rb-l">'+rmk+'</div><div class="rb-q">'+nf(row.qty)+' units</div></div>');});
   d0mpBar.filter(x=>!shown.has(x.remark)).forEach(row=>{badges.push('<div class="rb" style="background:'+gradient('#546E7A')+'"><div class="rb-v">'+row.pct+'%</div><div class="rb-l">'+row.remark+'</div><div class="rb-q">'+nf(row.qty)+' units</div></div>');});
   document.getElementById('d0-badges').innerHTML=badges.join('');
-  // Recompute mpBar from d0AllR (PL Pickup Weeknum filtered rows)
-  const d0AllR=P.d0AllR||[];
-  const d0mpM={};d0AllR.forEach(r=>{if(r[MR]>=0)d0mpM[r[MR]]=(d0mpM[r[MR]]||0)+r[QTY];});
-  const d0Tot=d0AllR.reduce((s,r)=>s+r[QTY],0);
-  const d0mpBar=Object.entries(d0mpM).map(([i,q])=>({remark:M.mp_remarks[+i],qty:q,pct:d0Tot>0?+(q/d0Tot*100).toFixed(2):0})).sort((a,b)=>b.qty-a.qty);
   hbar('ch-d0-bar',d0mpBar.map(x=>x.remark),d0mpBar.map(x=>x.pct),(lbl)=>RMC[lbl]||'#546E7A');
   const rmks=[...new Set(d0mpBar.map(r=>r.remark))].slice(0,6);
   vbar('ch-d0-wk',M.weeks,rmks.map((rmk,i)=>{const ri=M.mp_remarks.indexOf(rmk);return{label:rmk,data:M.weeks.map((_,wi)=>d0AllR.filter(r=>r[PLWKI]===wi&&r[MR]===ri).reduce((s,r)=>s+r[QTY],0)),backgroundColor:RMC[rmk]||CLRS[i],borderRadius:4};}),true);
@@ -1790,7 +1785,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 05:23 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 05:27 PM</span>';
   rSummary();
 });
 </script>
