@@ -281,7 +281,10 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
   <div class="kr" id="lm-kpi"></div>
   <div class="g2">
     <div class="card"><div class="ct">📦 Weekly LM Pendency</div><div class="ch-sm"><canvas id="ch-lm-wk"></canvas></div></div>
-    <div class="card"><div class="ct">📦 Monthly LM Pendency</div><div class="ch-sm"><canvas id="ch-lm-mn"></canvas></div></div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:10px 16px;background:#1e3a8a;color:#fff;font-weight:800;font-size:13px">📋 MP Remarks → Warehouse → Sellers</div>
+      <div class="thl" style="max-height:320px"><div class="tw" id="lm-rmk-tree"></div></div>
+    </div>
   </div>
   <div class="card">
     <div class="ct">📦 LM Pendency — High to Low</div>
@@ -1053,18 +1056,147 @@ function rLM(){
   const filtPairs=lmSagFilter(P.lmPairs);
   const filtR=filtPairs.map(p=>p.r);
   const filtTotal=filtR.reduce((s,r)=>s+r[QTY],0);
-  const filtSel=pWk(filtR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');
-  const filtTr=pWk(filtR,r=>r[TR],i=>M.transporters[i],QTY,'sum');
-  const filtFC=pWk(filtR,r=>r[WH],i=>M.warehouses[i],QTY,'sum');
+  const filtSelCount=new Set(filtR.map(r=>r[SEL])).size;
   const filtWkly=M.weeks.map((_,wi)=>filtR.filter(r=>r[WK]===wi).reduce((s,r)=>s+r[QTY],0));
-  const filtMnly=M.months.map((_,mi)=>filtR.filter(r=>r[MON]===mi).reduce((s,r)=>s+r[QTY],0));
-  document.getElementById('lm-kpi').innerHTML=`<div class="kc r"><div class="kv">${nf(filtTotal)}</div><div class="kl">LM Pendency Qty</div></div><div class="kc o"><div class="kv">${filtSel.length}</div><div class="kl">Sellers Impacted</div></div>`;
+  document.getElementById('lm-kpi').innerHTML=`<div class="kc r"><div class="kv">${nf(filtTotal)}</div><div class="kl">LM Pendency Qty</div></div><div class="kc o"><div class="kv">${filtSelCount}</div><div class="kl">Sellers Impacted</div></div>`;
   vbar('ch-lm-wk',M.weeks,[{label:'LM Pendency',data:filtWkly,backgroundColor:'#E53935',borderRadius:5}]);
-  vbar('ch-lm-mn',M.months,[{label:'LM Pendency',data:filtMnly,backgroundColor:'#9C27B0',borderRadius:5}]);
-  rLMSel_f('',filtSel);rLMTr_f('',filtTr);rLMFC_f('',filtFC);
+  rLMRmkTree(filtR);
+  rLMSel_f('');rLMTr_f('');rLMFC_f();
 }
-function rLMSel_f(q,d){if(!d)d=lmSagFilter(CMP.lmPairs),d=pWk(d.map(p=>p.r),r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');const f=d.filter(r=>{const p=r.label.split('|');return!q||(p[0]||'').toLowerCase().includes(q)||(p[1]||'').toLowerCase().includes(q);});document.getElementById('lm-tbl-s').innerHTML=wkTbl(f,'Seller ID','Seller Name','Promised Qty');}
-function rLMTr_f(q,d){if(!d)d=pWk(lmSagFilter(CMP.lmPairs).map(p=>p.r),r=>r[TR],i=>M.transporters[i],QTY,'sum');const f=d.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-t').innerHTML=wkTbl(f,'Transporter',null,'Promised Qty');}
+function rLMRmkTree(rows){
+  // MP Remarks → Warehouse → Sellers expandable tree
+  const rmkMap={};
+  (rows||lmSagFilter(CMP.lmPairs).map(p=>p.r)).forEach(r=>{
+    const mri=r[MR];const whi=r[WH];const seli=r[SEL];const qty=r[QTY];
+    const rmkL=mri>=0?(M.mp_remarks[mri]||'—'):'(blank)';
+    const whL=whi>=0?(M.warehouses[whi]||'—'):'(blank)';
+    if(!rmkMap[mri]){rmkMap[mri]={label:rmkL,tot:0,whs:{}};}
+    rmkMap[mri].tot+=qty;
+    if(!rmkMap[mri].whs[whi]){rmkMap[mri].whs[whi]={label:whL,tot:0,sels:{}};}
+    rmkMap[mri].whs[whi].tot+=qty;
+    if(!rmkMap[mri].whs[whi].sels[seli]){rmkMap[mri].whs[whi].sels[seli]={id:M.sellers[seli]||'?',name:(M.seller_names&&M.seller_names[seli])||'',tot:0};}
+    rmkMap[mri].whs[whi].sels[seli].tot+=qty;
+  });
+  const rmks=Object.values(rmkMap).sort((a,b)=>b.tot-a.tot);
+  const mx=rmks[0]?rmks[0].tot:1;
+  let h='<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="background:#1e3a8a;color:#fff"><th style="padding:7px 12px;text-align:left">MP Remarks / Warehouse / Seller</th><th style="padding:7px 12px;text-align:right;min-width:90px">Qty</th><th style="padding:7px 12px;min-width:120px">Bar</th></tr></thead>';
+  rmks.forEach((rmk,i)=>{
+    const rid='lmrt'+i;
+    h+='<tbody><tr style="cursor:pointer;background:#EEF4FF" onclick="augToggle(\''+rid+'\')">';
+    h+='<td style="padding:7px 12px;font-weight:700;color:#1e3a8a"><button id="btn-'+rid+'" style="background:none;border:none;cursor:pointer;font-size:11px;margin-right:6px;color:#2563eb">▶</button>'+rmk.label+'</td>';
+    h+='<td style="padding:7px 12px;text-align:right;font-weight:800">'+nf(rmk.tot)+'</td>';
+    h+='<td style="padding:7px 12px">'+augBar(rmk.tot,mx,'#2563eb')+'</td></tr></tbody>';
+    // Warehouse level
+    const whs=Object.values(rmk.whs).sort((a,b)=>b.tot-a.tot);
+    h+='<tbody id="'+rid+'" style="display:none">';
+    whs.forEach((wh,wi)=>{
+      const wid=rid+'w'+wi;
+      h+='<tr style="background:#dbeafe;cursor:pointer" onclick="event.stopPropagation();augToggle(\''+wid+'\')">';
+      h+='<td style="padding:6px 12px 6px 26px;font-weight:600;color:#1d4ed8"><button id="btn-'+wid+'" style="background:none;border:none;cursor:pointer;font-size:10px;margin-right:5px;color:#7c3aed">▶</button>'+wh.label+'</td>';
+      h+='<td style="padding:6px 12px;text-align:right;font-weight:700">'+nf(wh.tot)+'</td>';
+      h+='<td style="padding:6px 12px">'+augBar(wh.tot,rmk.tot,'#3b82f6')+'</td></tr>';
+    });
+    h+='</tbody>';
+    // Seller level (one tbody per warehouse)
+    whs.forEach((wh,wi)=>{
+      const wid=rid+'w'+wi;
+      const sels=Object.values(wh.sels).sort((a,b)=>b.tot-a.tot);
+      h+='<tbody id="'+wid+'" style="display:none">';
+      sels.forEach(s=>{
+        h+='<tr style="background:#eff6ff"><td style="padding:5px 12px 5px 46px;font-size:12px;color:#0369a1">'+s.id+(s.name?' — '+s.name:'')+'</td>';
+        h+='<td style="padding:5px 12px;text-align:right;font-size:12px;font-weight:600">'+nf(s.tot)+'</td><td></td></tr>';
+      });
+      h+='</tbody>';
+    });
+  });
+  h+='</table>';
+  document.getElementById('lm-rmk-tree').innerHTML=h;
+}
+function rLMSel_f(q){
+  const rows=lmSagFilter(CMP.lmPairs).map(p=>p.r);
+  const nw=M.weeks.length;
+  const selMap={};
+  rows.forEach(r=>{
+    const si=r[SEL];if(si<0)return;
+    const id=M.sellers[si]||'?';const nm=(M.seller_names&&M.seller_names[si])||'';
+    if(q&&!id.toLowerCase().includes(q)&&!nm.toLowerCase().includes(q))return;
+    const tri=r[TR];const wk=r[WK];const qty=r[QTY];
+    if(!selMap[si]){selMap[si]={id,name:nm,wk:new Array(nw).fill(0),tot:0,trs:{}};}
+    selMap[si].wk[wk]=(selMap[si].wk[wk]||0)+qty;selMap[si].tot+=qty;
+    if(!selMap[si].trs[tri]){selMap[si].trs[tri]={label:tri>=0?(M.transporters[tri]||'—'):'(blank)',wk:new Array(nw).fill(0),tot:0};}
+    selMap[si].trs[tri].wk[wk]=(selMap[si].trs[tri].wk[wk]||0)+qty;selMap[si].trs[tri].tot+=qty;
+  });
+  const sels=Object.values(selMap).sort((a,b)=>b.tot-a.tot).slice(0,100);
+  const mx=sels[0]?sels[0].tot:1;
+  const subWk=new Array(nw).fill(0);sels.forEach(s=>s.wk.forEach((v,i)=>subWk[i]+=v));
+  let h='<table><thead><tr><th>#</th><th>Seller ID</th><th>Seller Name</th>';
+  M.weeks.forEach(w=>h+='<th style="min-width:44px;text-align:center"><div class="wk-hdr">'+w+'</div></th>');
+  h+='<th style="min-width:110px">Promised Qty</th></tr></thead>';
+  h+='<tbody><tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800">';
+  h+='<td style="padding:7px 8px;color:#1e3a8a">—</td><td colspan="2" style="font-size:11px;font-weight:800;color:#1e3a8a;padding:7px 8px">∑ Sub-Total</td>';
+  subWk.forEach(v=>h+='<td style="text-align:right;font-weight:800;color:'+(v>0?'#1e3a8a':'#CBD5E1')+';background:'+(v>0?'rgba(37,99,235,.1)':'transparent')+'">'+(v>0?v:'')+'</td>');
+  h+='<td class="tot-col" style="font-weight:900;color:#1e3a8a">'+nf(subWk.reduce((s,x)=>s+x,0))+'</td></tr></tbody>';
+  sels.forEach((s,i)=>{
+    const sid='lmsel'+i;
+    h+='<tbody><tr style="cursor:pointer" onclick="augToggle(\''+sid+'\')">';
+    h+='<td>'+rk(i)+'</td><td class="cid-mono"><button id="btn-'+sid+'" style="background:none;border:none;cursor:pointer;font-size:11px;margin-right:5px;color:#2563eb">▶</button>'+s.id+'</td>';
+    h+='<td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;font-weight:600">'+s.name+'</td>';
+    s.wk.forEach(v=>h+='<td class="'+(v>0?'wk-hi':'wk-zero')+'">'+(v>0?v:'')+'</td>');
+    h+='<td class="tot-col">'+barCell(s.tot,mx)+'</td></tr></tbody>';
+    const trs=Object.values(s.trs).sort((a,b)=>b.tot-a.tot);
+    h+='<tbody id="'+sid+'" style="display:none">';
+    trs.forEach(tr=>{
+      h+='<tr style="background:#f0f9ff"><td></td><td colspan="2" style="padding-left:30px;font-size:12px;color:#0369a1;font-weight:600">🚛 '+tr.label+'</td>';
+      tr.wk.forEach(v=>h+='<td style="text-align:right;font-size:12px">'+(v>0?v:'')+'</td>');
+      h+='<td class="tot-col" style="font-size:12px">'+nf(tr.tot)+'</td></tr>';
+    });
+    h+='</tbody>';
+  });
+  h+='</table>';
+  document.getElementById('lm-tbl-s').innerHTML=h;
+}
+function rLMTr_f(q){
+  const rows=lmSagFilter(CMP.lmPairs).map(p=>p.r);
+  const nw=M.weeks.length;
+  const trMap={};
+  rows.forEach(r=>{
+    const tri=r[TR];if(tri<0)return;
+    const label=M.transporters[tri]||'?';
+    if(q&&!label.toLowerCase().includes(q))return;
+    const si=r[SEL];const wk=r[WK];const qty=r[QTY];
+    if(!trMap[tri]){trMap[tri]={label,wk:new Array(nw).fill(0),tot:0,sels:{}};}
+    trMap[tri].wk[wk]=(trMap[tri].wk[wk]||0)+qty;trMap[tri].tot+=qty;
+    if(!trMap[tri].sels[si]){trMap[tri].sels[si]={id:M.sellers[si]||'?',name:(M.seller_names&&M.seller_names[si])||'',wk:new Array(nw).fill(0),tot:0};}
+    trMap[tri].sels[si].wk[wk]=(trMap[tri].sels[si].wk[wk]||0)+qty;trMap[tri].sels[si].tot+=qty;
+  });
+  const trs=Object.values(trMap).sort((a,b)=>b.tot-a.tot).slice(0,80);
+  const mx=trs[0]?trs[0].tot:1;
+  const subWk=new Array(nw).fill(0);trs.forEach(t=>t.wk.forEach((v,i)=>subWk[i]+=v));
+  let h='<table><thead><tr><th>#</th><th>Transporter</th>';
+  M.weeks.forEach(w=>h+='<th style="min-width:44px;text-align:center"><div class="wk-hdr">'+w+'</div></th>');
+  h+='<th style="min-width:110px">Promised Qty</th></tr></thead>';
+  h+='<tbody><tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800">';
+  h+='<td style="padding:7px 8px;color:#1e3a8a">—</td><td style="font-size:11px;font-weight:800;color:#1e3a8a;padding:7px 8px">∑ Sub-Total</td>';
+  subWk.forEach(v=>h+='<td style="text-align:right;font-weight:800;color:'+(v>0?'#1e3a8a':'#CBD5E1')+';background:'+(v>0?'rgba(37,99,235,.1)':'transparent')+'">'+(v>0?v:'')+'</td>');
+  h+='<td class="tot-col" style="font-weight:900;color:#1e3a8a">'+nf(subWk.reduce((s,x)=>s+x,0))+'</td></tr></tbody>';
+  trs.forEach((tr,i)=>{
+    const tid='lmtr'+i;
+    h+='<tbody><tr style="cursor:pointer" onclick="augToggle(\''+tid+'\')">';
+    h+='<td>'+rk(i)+'</td><td class="cid-mono"><button id="btn-'+tid+'" style="background:none;border:none;cursor:pointer;font-size:11px;margin-right:5px;color:#2563eb">▶</button>'+tr.label+'</td>';
+    tr.wk.forEach(v=>h+='<td class="'+(v>0?'wk-hi':'wk-zero')+'">'+(v>0?v:'')+'</td>');
+    h+='<td class="tot-col">'+barCell(tr.tot,mx)+'</td></tr></tbody>';
+    const sels=Object.values(tr.sels).sort((a,b)=>b.tot-a.tot);
+    h+='<tbody id="'+tid+'" style="display:none">';
+    sels.forEach(s=>{
+      h+='<tr style="background:#f0f9ff"><td></td><td style="padding-left:30px;font-size:12px;color:#0369a1">'+s.id+(s.name?' — '+s.name:'')+'</td>';
+      s.wk.forEach(v=>h+='<td style="text-align:right;font-size:12px">'+(v>0?v:'')+'</td>');
+      h+='<td class="tot-col" style="font-size:12px">'+nf(s.tot)+'</td></tr>';
+    });
+    h+='</tbody>';
+  });
+  h+='</table>';
+  document.getElementById('lm-tbl-t').innerHTML=h;
+}
 function rLMFC_f(q){
   const rows=lmSagFilter(CMP.lmPairs).map(p=>p.r);
   const nw=M.weeks.length;
@@ -1132,9 +1264,9 @@ function rLMFC_f(q){
   h+='</table>';
   document.getElementById('lm-tbl-f').innerHTML=h;
 }
-function rLMSel(q){rLMSel_f(q);}
-function rLMTr(q){rLMTr_f(q);}
-function rLMFC(q){rLMFC_f(q);}
+function rLMSel(q){rLMSel_f(q||'');}
+function rLMTr(q){rLMTr_f(q||'');}
+function rLMFC(q){rLMFC_f(q||'');}
 
 function rRecv(){
   const P=CMP;
@@ -1646,7 +1778,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 04:47 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 05:18 PM</span>';
   rSummary();
 });
 </script>
