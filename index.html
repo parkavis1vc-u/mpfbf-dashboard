@@ -163,7 +163,7 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
       <div class="dd" id="dd-month"><div class="dd-search"><input placeholder="🔍 Search months…" oninput="ddSearch(this,'month')"></div>
         <div class="dd-selall"><label><input type="checkbox" id="sa-month" onchange="selectAll('month',this.checked)"> <span>Select All</span> <span class="sa-count" id="sac-month"></span></label><button class="xs-r" onclick="clearDD('month')">Clear</button></div>
         <div class="dd-list" id="list-month"></div></div></div>
-    <div class="fl"><div class="fl-l">Week</div>
+    <div class="fl"><div class="fl-l">PL Pickup Week</div>
       <div class="fl-b" id="fb-week" onclick="toggleDD('week')"><span class="lbl-txt" id="lbl-week">All Weeks</span><span class="cnt-badge" id="cnt-week" style="display:none"></span>▾</div>
       <div class="dd" id="dd-week"><div class="dd-search"><input placeholder="🔍 Search weeks…" oninput="ddSearch(this,'week')"></div>
         <div class="dd-selall"><label><input type="checkbox" id="sa-week" onchange="selectAll('week',this.checked)"> <span>Select All</span> <span class="sa-count" id="sac-week"></span></label><button class="xs-r" onclick="clearDD('week')">Clear</button></div>
@@ -593,7 +593,7 @@ function tatRows(wkCol){
   for(let i=0;i<D.rows.length;i++){
     const r=D.rows[i];
     if(mI.length&&!mI.includes(r[MON]))continue;
-    if(wI.length&&!wI.includes(r[wkCol]))continue; // ← key: use received/QC week
+    if(wI.length&&r[PLWKI]>=0&&!wI.includes(r[PLWKI]))continue; // filter by PL Pickup Weeknum; rows without pickup date pass through
     if(whI.length&&!whI.includes(r[WH]))continue;
     if(vI.length&&!vI.includes(r[VRT]))continue;
     if(scItR.length&&!scItR.includes(r[SC]))continue;
@@ -617,7 +617,7 @@ function compute(){
   for(let i=0;i<D.rows.length;i++){
     const r=D.rows[i];
     if(mI.length&&!mI.includes(r[MON]))continue;
-    if(wI.length&&!wI.includes(r[WK]))continue;
+    if(wI.length&&r[PLWKI]>=0&&!wI.includes(r[PLWKI]))continue; // filter by PL Pickup Weeknum; rows without pickup date pass through
     if(whI.length&&!whI.includes(r[WH]))continue;
     if(vI.length&&!vI.includes(r[VRT]))continue;
     if(scI.length&&!scI.includes(r[SC]))continue;
@@ -645,13 +645,12 @@ function compute(){
   P.schedMnly=M.months.map((_,mi)=>FR.filter(r=>r[MON]===mi).reduce((s,r)=>s+r[QTY],0));
   // D0 page: exclude D0 AND Dropin/RTD Breach; filter week by PL Pickup Weeknum
   const d0i=M.mp_remarks.indexOf('D0'),dropi=M.mp_remarks.indexOf('Dropin/RTD Breach');
-  // PLWKI is stored as PL_Pickup_Weeknum+1 in build_data.py so week labels align
-  const [D0R]=tatRows(PLWKI);
-  const exR=D0R.filter(r=>r[MR]>=0&&r[MR]!==d0i&&r[MR]!==dropi);
+  // D0 data comes from FR which is already PLWKI-filtered via compute()
+  const exR=FR.filter(r=>r[MR]>=0&&r[MR]!==d0i&&r[MR]!==dropi);
   P.d0Sel=pWk(exR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum',PLWKI);
   P.d0Tr=pWk(exR,r=>r[TR],i=>M.transporters[i],QTY,'sum',PLWKI);
   P.d0FC=pWk(exR,r=>r[WH],i=>M.warehouses[i],QTY,'sum',PLWKI);
-  P.d0AllR=D0R; // for remark % and weekly chart
+  P.d0AllR=FR; // for remark % and weekly chart
   const lmI=M.final_buckets.indexOf('LM Pendency');
   const lmPairs=[];FR.forEach((r,j)=>{if(r[FB]===lmI)lmPairs.push({r,ri:FRI[j]});});
   const lmR=lmPairs.map(p=>p.r);
@@ -1012,8 +1011,8 @@ function rD0(){
   const P=CMP;
   const d0AllR=P.d0AllR||[];
   const d0mpM={};d0AllR.forEach(r=>{if(r[MR]>=0)d0mpM[r[MR]]=(d0mpM[r[MR]]||0)+r[QTY];});
-  // Denominator = total scheduled qty (slot week filtered via FR), not just picked rows
-  const d0BaseTot=P.totalQty||FR.reduce((s,r)=>s+r[QTY],0);
+  // Denominator = total promised qty filtered by PL Pickup Weeknum (same as d0AllR)
+  const d0BaseTot=d0AllR.reduce((s,r)=>s+r[QTY],0)||1;
   const d0mpBar=Object.entries(d0mpM).map(([i,q])=>({remark:M.mp_remarks[+i],qty:q,pct:d0BaseTot>0?+(q/d0BaseTot*100).toFixed(2):0})).sort((a,b)=>b.qty-a.qty);
   const ORDER=['D0','Dropin/RTD Breach','Seller Issue','Transporter Issue','FC Issue','Space Breach','TAT issue-FTL'];
   const shown=new Set();const badges=[];
@@ -1786,7 +1785,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 05:38 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 05:43 PM</span>';
   rSummary();
 });
 </script>
