@@ -1065,7 +1065,73 @@ function rLM(){
 }
 function rLMSel_f(q,d){if(!d)d=lmSagFilter(CMP.lmPairs),d=pWk(d.map(p=>p.r),r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTY,'sum');const f=d.filter(r=>{const p=r.label.split('|');return!q||(p[0]||'').toLowerCase().includes(q)||(p[1]||'').toLowerCase().includes(q);});document.getElementById('lm-tbl-s').innerHTML=wkTbl(f,'Seller ID','Seller Name','Promised Qty');}
 function rLMTr_f(q,d){if(!d)d=pWk(lmSagFilter(CMP.lmPairs).map(p=>p.r),r=>r[TR],i=>M.transporters[i],QTY,'sum');const f=d.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-t').innerHTML=wkTbl(f,'Transporter',null,'Promised Qty');}
-function rLMFC_f(q,d){if(!d)d=pWk(lmSagFilter(CMP.lmPairs).map(p=>p.r),r=>r[WH],i=>M.warehouses[i],QTY,'sum');const f=d.filter(r=>!q||r.label.toLowerCase().includes(q));document.getElementById('lm-tbl-f').innerHTML=wkTbl(f,'FC / Warehouse',null,'Promised Qty');}
+function rLMFC_f(q){
+  const rows=lmSagFilter(CMP.lmPairs).map(p=>p.r);
+  const nw=M.weeks.length;
+  // Build FC → Remark → Seller tree
+  const whMap={};
+  rows.forEach(r=>{
+    const whi=r[WH];if(whi<0)return;
+    const fc=M.warehouses[whi];
+    if(q&&!fc.toLowerCase().includes(q.toLowerCase()))return;
+    const mri=r[MR];const seli=r[SEL];const wk=r[WK];const qty=r[QTY];
+    if(!whMap[whi]){whMap[whi]={label:fc,wk:new Array(nw).fill(0),tot:0,rmks:{}};}
+    whMap[whi].wk[wk]=(whMap[whi].wk[wk]||0)+qty;whMap[whi].tot+=qty;
+    if(!whMap[whi].rmks[mri]){whMap[whi].rmks[mri]={label:mri>=0?(M.mp_remarks[mri]||'—'):'(blank)',wk:new Array(nw).fill(0),tot:0,sels:{}};}
+    whMap[whi].rmks[mri].wk[wk]=(whMap[whi].rmks[mri].wk[wk]||0)+qty;whMap[whi].rmks[mri].tot+=qty;
+    if(!whMap[whi].rmks[mri].sels[seli]){whMap[whi].rmks[mri].sels[seli]={id:M.sellers[seli]||'?',name:(M.seller_names&&M.seller_names[seli])||'',wk:new Array(nw).fill(0),tot:0};}
+    whMap[whi].rmks[mri].sels[seli].wk[wk]=(whMap[whi].rmks[mri].sels[seli].wk[wk]||0)+qty;whMap[whi].rmks[mri].sels[seli].tot+=qty;
+  });
+  const fcs=Object.values(whMap).sort((a,b)=>b.tot-a.tot);
+  const mx=fcs[0]?fcs[0].tot:1;
+  // Subtotal row
+  const subWk=new Array(nw).fill(0);fcs.forEach(f=>f.wk.forEach((v,i)=>subWk[i]+=v));
+  const subTot=subWk.reduce((s,x)=>s+x,0);
+  let h='<table><thead><tr><th style="min-width:28px">#</th><th>FC / Warehouse</th>';
+  M.weeks.forEach(w=>h+='<th style="min-width:44px;text-align:center"><div class="wk-hdr">'+w+'</div></th>');
+  h+='<th style="min-width:110px">Promised Qty</th></tr></thead>';
+  // Subtotal tbody
+  h+='<tbody><tr style="background:linear-gradient(to right,#EEF4FF,#e8f0fe);border-top:2px solid #2563EB;border-bottom:2px solid #2563EB;font-weight:800">';
+  h+='<td style="padding:7px 8px;color:#1e3a8a">—</td><td style="font-size:11px;font-weight:800;color:#1e3a8a;padding:7px 8px">∑ Sub-Total</td>';
+  subWk.forEach(v=>h+='<td style="text-align:right;font-weight:800;color:'+(v>0?'#1e3a8a':'#CBD5E1')+';background:'+(v>0?'rgba(37,99,235,.1)':'transparent')+'">'+(v>0?v:'')+'</td>');
+  h+='<td class="tot-col" style="font-weight:900;color:#1e3a8a">'+nf(subTot)+'</td></tr></tbody>';
+  // FC rows
+  fcs.forEach((fc,i)=>{
+    const fid='lmfc'+i;
+    h+='<tbody><tr style="cursor:pointer" onclick="augToggle(\''+fid+'\')">';
+    h+='<td>'+rk(i)+'</td>';
+    h+='<td class="cid-mono"><button id="btn-'+fid+'" style="background:none;border:none;cursor:pointer;font-size:11px;margin-right:5px;color:#2563eb">▶</button>'+fc.label+'</td>';
+    fc.wk.forEach(v=>h+='<td class="'+(v>0?'wk-hi':'wk-zero')+'">'+(v>0?v:'')+'</td>');
+    h+='<td class="tot-col">'+barCell(fc.tot,mx)+'</td></tr></tbody>';
+    // Remarks level (hidden by default)
+    const rmks=Object.values(fc.rmks).sort((a,b)=>b.tot-a.tot);
+    h+='<tbody id="'+fid+'" style="display:none">';
+    rmks.forEach((rmk,ri)=>{
+      const rid=fid+'r'+ri;
+      h+='<tr style="background:#EEF4FF;cursor:pointer" onclick="event.stopPropagation();augToggle(\''+rid+'\')">';
+      h+='<td></td><td style="padding-left:22px;font-weight:600;color:#1e40af"><button id="btn-'+rid+'" style="background:none;border:none;cursor:pointer;font-size:11px;margin-right:5px;color:#7c3aed">▶</button>'+rmk.label+'</td>';
+      rmk.wk.forEach(v=>h+='<td class="'+(v>0?'wk-hi':'wk-zero')+'" style="background:'+(v>0?'rgba(37,99,235,.08)':'transparent')+'">'+(v>0?v:'')+'</td>');
+      h+='<td class="tot-col" style="font-weight:700">'+nf(rmk.tot)+'</td></tr>';
+    });
+    h+='</tbody>';
+    // Seller level tbodys (one per remark)
+    rmks.forEach((rmk,ri)=>{
+      const rid=fid+'r'+ri;
+      const sels=Object.values(rmk.sels).sort((a,b)=>b.tot-a.tot);
+      h+='<tbody id="'+rid+'" style="display:none">';
+      sels.forEach(s=>{
+        const nm=s.name?' — '+s.name:'';
+        h+='<tr style="background:#f0f9ff">';
+        h+='<td></td><td style="padding-left:44px;font-size:12px;color:#0369a1">'+s.id+nm+'</td>';
+        s.wk.forEach(v=>h+='<td style="text-align:right;font-size:12px;color:#374151">'+(v>0?v:'')+'</td>');
+        h+='<td class="tot-col" style="font-size:12px">'+nf(s.tot)+'</td></tr>';
+      });
+      h+='</tbody>';
+    });
+  });
+  h+='</table>';
+  document.getElementById('lm-tbl-f').innerHTML=h;
+}
 function rLMSel(q){rLMSel_f(q);}
 function rLMTr(q){rLMTr_f(q);}
 function rLMFC(q){rLMFC_f(q);}
@@ -1580,7 +1646,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 04:28 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 12 Aug 2026, 04:47 PM</span>';
   rSummary();
 });
 </script>
