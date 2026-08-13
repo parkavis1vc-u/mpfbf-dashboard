@@ -663,8 +663,8 @@ function compute(){
   P.lmFC=pWk(lmR,r=>r[WH],i=>M.warehouses[i],QTY,'sum');
   P.lmWkly=M.weeks.map((_,wi)=>lmR.filter(r=>r[WK]===wi).reduce((s,r)=>s+r[QTY],0));
   P.lmMnly=M.months.map((_,mi)=>lmR.filter(r=>r[MON]===mi).reduce((s,r)=>s+r[QTY],0));
-  // ── Recv TAT ── filtered by PL PICKUP WEEK (PLWKI), using QC Completed final TAT (QTAT)
-  const [RVR,RVRI]=tatRows(PLWKI);
+  // ── Recv TAT ── filtered by PL PICKUP WEEK (PLWKI), strict (excludes PLWKI=-1 rows when week selected)
+  const [RVR,RVRI]=tatRows(PLWKI,true);
   // P95 at unique-CID level across all PL-pickup-week-filtered rows (no TAT threshold)
   const cidMaxR={};RVR.forEach((r,j)=>{if(r[QTAT]){const c=D.cids[RVRI[j]];if(!cidMaxR[c]||r[QTAT]>cidMaxR[c])cidMaxR[c]=r[QTAT];}});
   const rvT=Object.values(cidMaxR).sort((a,b)=>a-b);
@@ -1870,7 +1870,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 13 Aug 2026, 06:15 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 13 Aug 2026, 06:18 PM</span>';
   rSummary();
 });
 </script>
