@@ -299,7 +299,7 @@ tr:hover td{background:#EEF4FF}tr:nth-child(even) td{background:#f8faff}tr:nth-c
 <div class="page" id="page-recv">
   <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap">
     <div class="p95b" style="background:linear-gradient(135deg,#0D1B8E,#1565C0)"><div class="p95v" id="recv-p95">-</div><div class="p95l">P95 — QC Completed final TAT (days)</div><div class="p95n">All consignments · by PL Pickup Week</div></div>
-    <div class="kc r" style="flex:1;min-width:150px"><div class="kv" id="recv-cnt">-</div><div class="kl"># Consignment IDs (Received final TAT &gt; 11d)</div></div>
+    <div class="kc r" style="flex:1;min-width:150px"><div class="kv" id="recv-cnt">-</div><div class="kl"># Consignment IDs (QC Completed TAT &gt; 7d)</div></div>
     <div class="kc o" style="flex:1;min-width:150px"><div class="kv" id="recv-pct">-</div><div class="kl">% Consignment IDs Impacted</div></div>
   </div>
   <div class="g2">
@@ -669,15 +669,16 @@ function compute(){
   const cidMaxR={};RVR.forEach((r,j)=>{if(r[QTAT]){const c=D.cids[RVRI[j]];if(!cidMaxR[c]||r[QTAT]>cidMaxR[c])cidMaxR[c]=r[QTAT];}});
   const rvT=Object.values(cidMaxR).sort((a,b)=>a-b);
   P.recvP95=rvT.length?rvT[Math.ceil(0.95*rvT.length)-1]:0;
-  const rvR=[],rvRI=[];RVR.forEach((r,j)=>{if(r[QTAT]>11){rvR.push(r);rvRI.push(RVRI[j]);}});
-  // Count = unique Consignment IDs with QC Completed final TAT > 11d
+  // Breach rows: QTAT > 7d (for count KPI and remark chart)
+  const rvR=[],rvRI=[];RVR.forEach((r,j)=>{if(r[QTAT]>7){rvR.push(r);rvRI.push(RVRI[j]);}});
   P.recvCount=new Set(rvRI.map(i=>D.cids[i])).size;
   P.recvCIDCount=new Set(RVRI.map(i=>D.cids[i])).size;
   const rvRM={};rvR.forEach(r=>{if(r[TATR]>=0)rvRM[r[TATR]]=(rvRM[r[TATR]]||0)+1;});
   P.recvRmk=Object.entries(rvRM).map(([i,c])=>({remark:M.tat_remarks[+i],count:c})).sort((a,b)=>b.count-a.count);
-  P.recvSel=pWk(rvR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTAT,'max',PLWKI);
-  P.recvTr=pWk(rvR,r=>r[TR],i=>M.transporters[i],QTAT,'max',PLWKI);
-  P.recvFC=pWk(rvR,r=>r[WH],i=>M.warehouses[i],QTAT,'max',PLWKI);
+  // Breakdown tables use ALL filtered rows (RVR) sorted by max QTAT — always shows data
+  P.recvSel=pWk(RVR,r=>r[SEL],i=>M.sellers[i]+'|'+M.seller_names[i],QTAT,'max',PLWKI);
+  P.recvTr=pWk(RVR,r=>r[TR],i=>M.transporters[i],QTAT,'max',PLWKI);
+  P.recvFC=pWk(RVR,r=>r[WH],i=>M.warehouses[i],QTAT,'max',PLWKI);
   // P95 per PL pickup week at unique-CID level
   P.recvP95Wk=M.weeks.map((_,wi)=>{const cm={};RVR.forEach((r,j)=>{if(r[PLWKI]===wi&&r[QTAT]){const c=D.cids[RVRI[j]];if(!cm[c]||r[QTAT]>cm[c])cm[c]=r[QTAT];}});const v=Object.values(cm).sort((a,b)=>a-b);return v.length?v[Math.ceil(0.95*v.length)-1]:0;});
   // ── QC TAT ── filtered by QC COMPLETED WEEK (QWKI), not slot week
@@ -1870,7 +1871,7 @@ function rAug2026(){
 
 window.addEventListener('load',()=>{
   initDDs();compute();initRecall();
-  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 13 Aug 2026, 06:18 PM</span>';
+  document.getElementById('hdr-info').innerHTML=nf(M.total_records)+' records · '+nf(M.unique_sellers)+' sellers · '+M.months.join(', ')+' · W'+M.weeks[0].slice(1)+'–W'+M.weeks[M.weeks.length-1].slice(1)+'<br><span style="opacity:.5">Last updated: 13 Aug 2026, 06:48 PM</span>';
   rSummary();
 });
 </script>
